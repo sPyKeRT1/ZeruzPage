@@ -2,7 +2,7 @@ Tecnologias:
 
 - HTML
 - CSS
-- JS
+- PYTHON
 - ORACLE BD
 
 DISCLAIMER:
