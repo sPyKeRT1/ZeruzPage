@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Vista de inicio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+</head>
+
+<body>
+    <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom shadow-sm">
+        <h5 class="my-0 mr-md-auto font-weight-normal"><a href="{{ url_for('inicio') }}">Compañía</a></h5>
+        <nav class="my-2 my-md-0 mr-md-3">
+            <a class="p-2 text-dark" href="{{ url_for('productos') }}">Productos</a>
+        </nav>
+        {% if not session["usuario"] %}
+        <a class="btn btn-outline-primary" href="{{ url_for('inicio') }}">Registrarse</a>
+        {% endif %}
+        {% if session["usuario"] %}
+        <a class="btn btn-outline-danger" style="margin-left: 10px;" href="{{ url_for('cerrar_sesion') }}">Cerrar Sesión</a>
+        {% else %}
+        <a class="btn btn-outline-success" style="margin-left: 10px;" href="{{ url_for('inicio_sesion') }}">Iniciar Sesión</a>
+        {% endif %}
+    </div>
+
+    <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+        <h1 class="display-4">Productos</h1>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                {% if category == "success" %}
+                <div class="alert alert-success"> <strong>¡Excelente!</strong> {{ message }}</div>
+                {% else %}
+                <div class="alert alert-danger"> <strong>¡Oh rayos!</strong> {{ message }}</div>
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% if session["usuario"] %}
+            {% if productos|length > 0 %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Código Producto</th>
+                        <th scope="col">Nombre</th>
+                        <th scope="col">Precio</th>
+                        <th scope="col">Categoría</th>
+                        <th scope="col">Stock</th>
+                        <th scope="col">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in productos %}
+                    <tr>
+                        <td>{{ producto[0] }}</td>
+                        <td>{{ producto[1] }}</td>
+                        <td>{{ producto[2] }}</td>
+                        <td>{{ producto[3] }}</td>
+                        <td>{{ producto[4] }}</td>
+                        <td>
+                            <form action="{{ url_for('modificar_producto') }}" method="POST">
+                                <button class="btn btn-success btn-block" type="submit" name="modificar_producto" id="modificar_producto" value="{{ producto[0] }}">Modificar</button>
+                            </form>
+                            <form action="{{ url_for('eliminar_producto') }}" method="POST">
+                                <button class="btn btn-danger btn-block" type="submit" name="eliminar_producto" id="eliminar_producto" value="{{ producto[0] }}">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+                <div class="alert alert-info"> <strong>¡Atención!</strong> Al parecer aún no ingresas ningún producto</div>
+            {% endif %}
+        {% else %}
+            <div class="alert alert-info"> <strong>¡Atención!</strong> Debe iniciar sesión para ver los productos</div>
+        {% endif %}
+        {% if session["usuario"] %}
+        <a type="button" class="btn btn-success" href="{{ url_for('insertar_producto') }}">Agregar Producto</a>
+        {% endif %}
+        <footer class="pt-4 my-md-5 pt-md-5 border-top">
+            <div class="row">
+                <div class="col-12 col-md">
+                    <small class="d-block mb-3 text-muted">&copy; Base de datos - 2020</small>
+                </div>
+            </div>
+        </footer>
+    </div>
+</body>
+
+</html>

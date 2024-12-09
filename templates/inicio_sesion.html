@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Vista de inicio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+</head>
+
+<body>
+    <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom shadow-sm">
+        <h5 class="my-0 mr-md-auto font-weight-normal"><a href="{{ url_for('inicio') }}">Compañía</a></h5>
+        <nav class="my-2 my-md-0 mr-md-3">
+            <a class="p-2 text-dark" href="{{ url_for('productos') }}">Productos</a>
+        </nav>
+        {% if not session["usuario"] %}
+        <a class="btn btn-outline-primary" href="{{ url_for('inicio') }}">Registrarse</a>
+        {% endif %}
+        {% if session["usuario"] %}
+        <a class="btn btn-outline-danger" style="margin-left: 10px;" href="{{ url_for('cerrar_sesion') }}">Cerrar Sesión</a>
+        {% else %}
+        <a class="btn btn-outline-success" style="margin-left: 10px;" href="{{ url_for('inicio_sesion') }}">Iniciar Sesión</a>
+        {% endif %}
+    </div>
+
+    <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+        <h1 class="display-4">Iniciar Sesión</h1>
+        <p class="lead">Debes iniciar sesión para ingresar un producto</p>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                {% if category == "success" %}
+                <div class="alert alert-success"> <strong>¡Excelente!</strong> {{ message }}</div>
+                {% else %}
+                <div class="alert alert-danger"> <strong>¡Oh rayos!</strong> {{ message }}</div>
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <form action="{{ url_for('inicio_sesion') }}" method="POST">
+            <div class="form-group">
+                <label for="rut_usuario">Rut</label>
+                <input type="text" class="form-control" name="rut_usuario" id="rut_usuario" placeholder="Ingrese su rut">
+            </div>
+            <div class="form-group">
+                <label for="contrasena_usuario">Contraseña</label>
+                <input type="password" class="form-control" name="contrasena_usuario" id="contrasena_usuario" placeholder="Ingrese su contraseña">
+            </div>
+            <button type="submit" class="btn btn-success">Iniciar</button>
+        </form>
+        <footer class="pt-4 my-md-5 pt-md-5 border-top">
+            <div class="row">
+                <div class="col-12 col-md">
+                    <small class="d-block mb-3 text-muted">&copy; Base de datos - 2024</small>
+                </div>                
+            </div>
+        </footer>
+    </div>
+</body>
+
+</html>
