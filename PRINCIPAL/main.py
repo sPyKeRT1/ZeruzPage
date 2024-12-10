@@ -71,7 +71,7 @@ def registrar_usuario():
         return redirect(url_for("inicio"))
 
 
-@app.route("/productos", methods=["GET"])  # vista de los productos
+@app.route("/productos", methods=["GET"])  # Vista de los productos
 def productos():
     if "usuario" in session:
         rut_usuario = session["usuario"]
@@ -79,10 +79,16 @@ def productos():
         if conexion:
             sentencia = conexion.cursor()
             try:
-                sentencia.prepare("SELECT * FROM PRODUCTO WHERE RUT_USUARIO = :rut")
-                sentencia.execute(None, {'rut': int(rut_usuario)})
+                # Si el usuario es administrador, trae todos los productos
+                if rut_usuario == 11111:
+                    sentencia.prepare("SELECT * FROM PRODUCTO")
+                else:
+                    # Si el usuario no es administrador, solo trae los productos correspondientes a su RUT
+                    sentencia.prepare("SELECT * FROM PRODUCTO WHERE RUT_USUARIO = :rut")
+                    sentencia.execute(None, {'rut': int(rut_usuario)})
+
                 productos = [fila for fila in sentencia]
-                return render_template("productos.html", productos=productos)
+                return render_template("productos.html", productos=productos, es_admin=(rut_usuario == 11111))
             except cx_Oracle.DatabaseError as e:
                 flash("Error al obtener productos: " + str(e), "danger")
             finally:
@@ -129,51 +135,132 @@ def inicio_sesion():
     else:
         return render_template("inicio_sesion.html")
 
-@app.route("/insertar_producto", methods=["POST", "GET"])  # vista insertar producto
+@app.route("/insertar_producto", methods=["POST", "GET"])  # Vista para insertar producto
 @requiere_administrador
 def insertar_producto():
     if request.method == "POST":
-        productos = dict()
-        productos["codigo"] = request.form["codigo_producto"]
-        productos["nombre"] = request.form["nombre_producto"]
-        productos["precio"] = request.form["precio_producto"]
-        productos["categoria"] = request.form["categoria_producto"]
-        productos["stock"] = request.form["stock_producto"]
+        # Recibir datos del formulario
+        productos = {
+            "codigo": request.form["codigo_producto"],
+            "nombre": request.form["nombre_producto"],
+            "precio": request.form["precio_producto"],
+            "categoria": request.form["categoria_producto"],
+            "stock": request.form["stock_producto"]
+        }
+
+        conexion = conectar_bdd()  # Conexión a la base de datos
+        if conexion:
+            try:
+                # Preparar variables para el procedimiento
+                sentencia = conexion.cursor()
+                resultado = sentencia.var(cx_Oracle.STRING)
+                mensaje = sentencia.var(cx_Oracle.STRING)
+                rut_usuario = session["usuario"]  # Se obtiene el RUT del usuario desde la sesión
+
+                # Llamada al procedimiento almacenado
+                sentencia.callproc(
+                    "INSERTAR_PRODUCTO",
+                    [
+                        int(productos["codigo"]),
+                        productos["nombre"],
+                        int(productos["precio"]),
+                        int(productos["categoria"]),
+                        int(productos["stock"]),
+                        int(rut_usuario),
+                        resultado,
+                        mensaje
+                    ]
+                )
+                flash(mensaje.getvalue(), "success" if resultado.getvalue() == "TRUE" else "danger")
+            except Exception as e:
+                # Manejo de errores de la base de datos
+                flash(f"Error al insertar producto: {str(e)}", "danger")
+            finally:
+                sentencia.close()
+        else:
+            # Error en la conexión
+            flash("No se pudo realizar la conexión con la base de datos", "danger")
+
+        return redirect(url_for("productos"))  # Redirige a la vista de productos
+
+    else:
+        # Obtener las categorías desde la base de datos para llenar el <select>
         conexion = conectar_bdd()
         if conexion:
-            sentencia = conexion.cursor()
-            resultado = sentencia.var(cx_Oracle.STRING) 
-            mensaje = sentencia.var(cx_Oracle.STRING)
-            rut_usuario = session["usuario"]
-            sentencia.callproc("INSERTAR_PRODUCTO", (int(productos["codigo"]), productos["nombre"], int(productos["precio"]), int(productos["categoria"]), int(productos["stock"]), int(rut_usuario), resultado, mensaje))
-            sentencia.close()
-            flash(mensaje.getvalue(), "success" if resultado.getvalue() == "TRUE" else "danger")
+            try:
+                sentencia = conexion.cursor()
+                sentencia.execute("SELECT CODIGO, NOMBRE FROM CATEGORIA")  # Trae ID y nombre
+                categorias = [fila for fila in sentencia]
+            except Exception as e:
+                categorias = []
+                flash(f"Error al cargar categorías: {str(e)}", "danger")
+            finally:
+                sentencia.close()
         else:
-            flash("No se pudo realizar la conexion", "danger")
-        return redirect(url_for("productos"))
-    else:
-        conexion = conectar_bdd()
-        sentencia = conexion.cursor()
-        sentencia.execute("SELECT * FROM CATEGORIA")
-        categorias = [fila for fila in sentencia]
-        sentencia.close()
+            categorias = []
+            flash("No se pudo realizar la conexión con la base de datos", "danger")
+
+        # Renderiza la plantilla con las categorías
         return render_template("insertar_producto.html", categorias=categorias)
 
-@app.route("/modificar_producto", methods=["POST", "GET"])  # vista modificar producto
+@app.route("/procesar_pago", methods=["POST"])
+def procesar_pago():
+    codigo_producto = request.form["codigo_producto"]
+    rut_usuario = session["usuario"]
+
+    conexion = conectar_bdd()
+    if conexion:
+        try:
+            cursor = conexion.cursor()
+            resultado = cursor.var(cx_Oracle.STRING)
+            mensaje = cursor.var(cx_Oracle.STRING)
+
+            # Suponiendo que tienes un procedimiento almacenado para procesar el pago
+            cursor.callproc("PROCESAR_PAGO", [codigo_producto, rut_usuario, resultado, mensaje])
+            conexion.commit()
+            cursor.close()
+
+            flash(mensaje.getvalue(), "success" if resultado.getvalue() == "TRUE" else "danger")
+        except Exception as e:
+            flash(f"Error al procesar el pago: {str(e)}", "danger")
+        return redirect(url_for("productos"))
+    else:
+        flash("No se pudo conectar a la base de datos", "danger")
+        return redirect(url_for("productos"))
+
+
+
+
+@app.route("/modificar_producto", methods=["POST", "GET"])
 @requiere_administrador
 def modificar_producto():
-    if "usuario" in session and request.method == "POST":
-        codigo = request.form["modificar_producto"]
+    if request.method == "POST":
+        codigo = request.form["codigo_producto"]
+        nombre = request.form["nombre_producto"]
+        precio = request.form["precio_producto"]
+        stock = request.form["stock_producto"]
         rut_usuario = session["usuario"]
+
         conexion = conectar_bdd()
-        sentencia = conexion.cursor()
-        sentencia.prepare("SELECT * FROM PRODUCTO WHERE CODIGO = :codigo")
-        sentencia.execute(None, {'codigo': int(codigo)})
-        producto = sentencia.fetchone()
-        sentencia.close()
-        return render_template("modificar_producto.html", producto=producto)
-    else:
+        if conexion:
+            cursor = conexion.cursor()
+            resultado = cursor.var(cx_Oracle.STRING)
+            mensaje = cursor.var(cx_Oracle.STRING)
+            
+            cursor.callproc("MODIFICAR_PRODUCTO", [
+                int(codigo), nombre, int(precio), int(stock), int(rut_usuario), resultado, mensaje
+            ])
+            conexion.commit()
+            cursor.close()
+
+            flash(mensaje.getvalue(), "success" if resultado.getvalue() == "TRUE" else "danger")
+        else:
+            flash("No se pudo conectar a la base de datos", "danger")
         return redirect(url_for("productos"))
+    else:
+        # Aquí puedes cargar los datos del producto
+        return render_template("modificar_producto.html")
+
 
 @app.route("/eliminar_producto", methods=["POST", "GET"])  # vista eliminar producto
 @requiere_administrador
