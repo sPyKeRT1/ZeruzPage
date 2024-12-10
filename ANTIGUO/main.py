@@ -4,7 +4,6 @@ import cx_Oracle
 app = Flask(__name__)
 app.config["SECRET_KEY"] = '4495d60fb193c77b54e891a4fe200e7e'
 
-
 RUT_ADMINISTRADOR = 11111  # Definir el RUT del administrador
 
 def requiere_administrador(func):
@@ -38,19 +37,39 @@ def registrar_usuario():
         usuario["nombre"] = request.form["nombre_usuario"]
         usuario["apellidos"] = request.form["apellidos_usuario"]
         usuario["contrasena"] = request.form["contrasena_usuario"]
+        usuario["rol"] = "1"
         conexion = conectar_bdd()
         if conexion:
             sentencia = conexion.cursor()
             resultado = sentencia.var(cx_Oracle.STRING) 
             mensaje = sentencia.var(cx_Oracle.STRING)
-            sentencia.callproc("INSERTAR_USUARIO", (int(usuario["rut"]), usuario["nombre"], usuario["apellidos"], usuario["contrasena"], resultado, mensaje))
-            sentencia.close()
-            flash(mensaje.getvalue(), "success" if resultado.getvalue() == "TRUE" else "danger")
+
+            try:
+                sentencia.callproc(
+                    "INSERTAR_USUARIO", 
+                    (
+                        int(usuario["rut"]), 
+                        usuario["nombre"], 
+                        usuario["apellidos"], 
+                        usuario["contrasena"], 
+                        int(usuario["rol"]),
+                        resultado, 
+                        mensaje
+                    )
+                )
+                conexion.commit()  # Confirmar la transacción
+                flash(mensaje.getvalue(), "success" if resultado.getvalue() == "TRUE" else "danger")
+            except cx_Oracle.DatabaseError as e:
+                flash("Error al registrar usuario: " + str(e), "danger")
+            finally:
+                sentencia.close()
+                conexion.close()
         else:
-            flash("No se pudo realizar la conexion", "danger")
+            flash("No se pudo realizar la conexión", "danger")
         return redirect(url_for("inicio"))
     else:  
         return redirect(url_for("inicio"))
+
 
 @app.route("/productos", methods=["GET"])  # vista de los productos
 def productos():
@@ -59,13 +78,17 @@ def productos():
         conexion = conectar_bdd()
         if conexion:
             sentencia = conexion.cursor()
-            sentencia.prepare("SELECT * FROM PRODUCTO WHERE RUT_USUARIO = :rut")
-            sentencia.execute(None, {'rut': int(rut_usuario)})
-            productos = [fila for fila in sentencia]
-            sentencia.close()
-            return render_template("productos.html", productos=productos)
+            try:
+                sentencia.prepare("SELECT * FROM PRODUCTO WHERE RUT_USUARIO = :rut")
+                sentencia.execute(None, {'rut': int(rut_usuario)})
+                productos = [fila for fila in sentencia]
+                return render_template("productos.html", productos=productos)
+            except cx_Oracle.DatabaseError as e:
+                flash("Error al obtener productos: " + str(e), "danger")
+            finally:
+                sentencia.close()
         else:
-            flash("No se pudo realizar la conexion", "danger")
+            flash("No se pudo realizar la conexión", "danger")
             return redirect(url_for("productos"))
     else:
         return render_template("productos.html")
@@ -81,19 +104,30 @@ def inicio_sesion():
             sentencia = conexion.cursor()
             resultado = sentencia.var(cx_Oracle.STRING) 
             mensaje = sentencia.var(cx_Oracle.STRING)
-            sentencia.callproc("INICIAR_SESION", (int(usuario["rut"]), usuario["contrasena"], resultado, mensaje))
-            sentencia.close()
-            if resultado.getvalue() == "TRUE":
-                session["usuario"] = int(usuario["rut"])
-                flash(mensaje.getvalue(), "success")
-            else:
-                flash(mensaje.getvalue(), "danger")
+            try:
+                sentencia.callproc(
+                    "INICIAR_SESION", 
+                    (
+                        int(usuario["rut"]), 
+                        usuario["contrasena"], 
+                        resultado, 
+                        mensaje
+                    )
+                )
+                if resultado.getvalue() == "TRUE":
+                    session["usuario"] = int(usuario["rut"])
+                    flash(mensaje.getvalue(), "success")
+                else:
+                    flash(mensaje.getvalue(), "danger")
+            except cx_Oracle.DatabaseError as e:
+                flash("Error al iniciar sesión: " + str(e), "danger")
+            finally:
+                sentencia.close()
         else:
-            flash("No se pudo realizar la conexion", "danger")
+            flash("No se pudo realizar la conexión", "danger")
         return redirect(url_for("productos"))
     else:
         return render_template("inicio_sesion.html")
-
 
 @app.route("/insertar_producto", methods=["POST", "GET"])  # vista insertar producto
 @requiere_administrador
@@ -161,6 +195,7 @@ def eliminar_producto():
     else:
         return redirect(url_for("productos"))
 
+
 @app.route("/cerrar_sesion")
 def cerrar_sesion():
     session.pop("usuario", None)
@@ -168,10 +203,11 @@ def cerrar_sesion():
 
 def conectar_bdd():
     try:    
-        servidor = cx_Oracle.makedsn('localhost', '1522', service_name='xe') 
-        conexion = cx_Oracle.connect(user='camila', password='camila', dsn=servidor) 
+        servidor = cx_Oracle.makedsn('localhost', '1521', service_name='xe') 
+        conexion = cx_Oracle.connect(user='USUARIO', password='PROYECTO', dsn=servidor) 
         return conexion
     except cx_Oracle.DatabaseError as e:
+        print("Error al conectar a la base de datos:", e)
         return False
 
 if __name__ == "__main__":
