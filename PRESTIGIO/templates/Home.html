@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home</title>
-    <link rel="stylesheet" href="../Styles/Home.css">
-    <link rel="stylesheet" href="../Styles/Navbar.css">
-    <link rel="stylesheet" href="../Styles/Card.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Home.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Navbar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Card.css') }}">
 </head>
 <body>
     {% include 'Navbar.html' %}
