@@ -29,49 +29,64 @@
     </div>
 
     <div class="container">
-        {% if session["usuario"] == 11111 %}
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                  {% for category, message in messages %}
-                    {% if category == "success" %}
-                    <div class="alert alert-success"> <strong>¡Excelente!</strong> {{ message }}</div>
-                    {% else %}
-                    <div class="alert alert-danger"> <strong>¡Oh rayos!</strong> {{ message }}</div>
-                    {% endif %}
-                  {% endfor %}
-                {% endif %}
-            {% endwith %}
-            <form action="{{ url_for('guardar_modificar_producto') }}" method="POST"> 
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+          <div class="alert alert-{{ category == 'success' and 'success' or 'danger' }}">
+              <strong>{{ category == 'success' and '¡Excelente!' or '¡Oh rayos!' }}</strong> {{ message }}
+          </div>
+          {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% if producto %}
+            <h3>Detalles del Producto</h3>
+            <dl class="row">
+                <dt class="col-sm-3">Código</dt>
+                <dd class="col-sm-9">{{ producto[0] }}</dd>
+                <dt class="col-sm-3">Nombre</dt>
+                <dd class="col-sm-9">{{ producto[1] }}</dd>
+                <dt class="col-sm-3">Precio</dt>
+                <dd class="col-sm-9">${{ producto[2] }}</dd>
+                <dt class="col-sm-3">Stock</dt>
+                <dd class="col-sm-9">{{ producto[4] }}</dd>
+            </dl>
+
+            <form method="POST" action="{{ url_for('modificar_producto') }}" class="mt-4">
+                <input type="hidden" name="codigo_producto" value="{{ producto[0] }}">
+                
                 <div class="form-group">
-                    <label for="codigo_producto">Código producto</label>
-                    <input type="number" class="form-control" name="codigo_producto" id="codigo_producto" value="{{ producto[0] }}" placeholder="Ingrese el código del producto" readonly>
+                    <label>Código de Producto</label>
+                    <input type="text" class="form-control" value="{{ producto[0] }}" disabled>
                 </div>
+                
                 <div class="form-group">
-                    <label for="nombre_producto">Nombre producto</label>
-                    <input type="text" class="form-control" name="nombre_producto" id="nombre_producto" value="{{ producto[1] }}" placeholder="Ingrese el nombre del producto" required>
+                    <label>Nombre del Producto</label>
+                    <input type="text" class="form-control" name="nombre_producto" value="{{ producto[1] }}" required>
                 </div>
+                
                 <div class="form-group">
-                    <label for="precio_producto">Precio</label>
-                    <input type="number" class="form-control" name="precio_producto" id="precio_producto" value="{{ producto[2] }}" placeholder="Ingrese el precio del producto" required>
+                    <label>Precio</label>
+                    <input type="number" class="form-control" name="precio_producto" value="{{ producto[2] }}" required min="0">
                 </div>
+                
                 <div class="form-group">
-                    <label for="categoria_producto">Categoría</label>
-                    <input type="text" class="form-control" name="categoria_producto" id="categoria_producto" value="{{ producto[3] }}" readonly>
+                    <label>Stock</label>
+                    <input type="number" class="form-control" name="stock_producto" value="{{ producto[4] }}" required min="0">
                 </div>
-                <div class="form-group">
-                    <label for="stock_producto">Stock</label>
-                    <input type="number" class="form-control" name="stock_producto" id="stock_producto" value="{{ producto[4] }}" placeholder="Ingrese el stock del producto" required>
-                </div>
-                <button type="submit" class="btn btn-primary">Guardar</button>
+                
+                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                <a href="{{ url_for('productos') }}" class="btn btn-secondary">Cancelar</a>
             </form>
         {% else %}
-            <p>No tienes permiso para ver esta página.</p>
+            <div class="alert alert-warning"> <strong>¡Atención!</strong> El producto no está disponible.</div>
         {% endif %}
+
         <footer class="pt-4 my-md-5 pt-md-5 border-top">
             <div class="row">
                 <div class="col-12 col-md">
                     <small class="d-block mb-3 text-muted">&copy; Base de datos - 2020</small>
-                </div>                
+                </div>
             </div>
         </footer>
     </div>
