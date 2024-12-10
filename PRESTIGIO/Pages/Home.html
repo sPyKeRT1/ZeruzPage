@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <link rel="stylesheet" href="../Styles/Home.css">
+    <link rel="stylesheet" href="../Styles/Navbar.css">
+    <link rel="stylesheet" href="../Styles/Card.css">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <main class="container">
+        <h1>Bienvenido al Home</h1>
+        <div class="card-grid">
+            {% for card in cards %}
+                {% include 'Card.html' %}
+            {% endfor %}
+        </div>
+    </main>
+</body>
+</html>
