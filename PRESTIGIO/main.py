@@ -1,10 +1,15 @@
 from flask import Flask, render_template, url_for, request, redirect, session, flash
 import cx_Oracle
 import secrets
-app = Flask(__name__, static_folder='../Styles')
+app = Flask(__name__, template_folder='templates')
 app.config["SECRET_KEY"] = secrets.token_hex(16)
 
-@app.route("/login", methoods=["POST","GET"])
+@app.route("/", methods=["POST","GET"])
+def home():
+    return render_template("Home.html")
+
+
+@app.route("/login", methods=["POST","GET"])
 def login():
     if request.method == "POST":
         user = dict()
@@ -26,10 +31,13 @@ def login():
             flash("No fue posible conectarse a la base de datos","danger")
         return redirect(url_for('login'))
     else:
-        return render_template("../Pages/Login.html")
+        return render_template("Login.html") 
     
 @app.route("/logout")
-
+def logout():
+    if session['user']:
+        session.pop("user", None)
+    return redirect(url_for('login'))
 
 
 def connect_db():
@@ -41,3 +49,6 @@ def connect_db():
         error = e.args[0]
         print(error)
         return False
+    
+if __name__ == "__main__":
+    app.run(debug=True)
