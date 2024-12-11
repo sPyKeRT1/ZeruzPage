@@ -1,25 +1,10 @@
 .bg-blue {
-    background-color: #007bff !important;
+    background-color: #007bff;
 }
 
-.navbar .text-dark {
-    color: white;
-}
-
-.navbar img {
-    height: 45px;
-    width: 45px;
-    margin-right: 10px; 
-}
-
-.navbar h5 {
-    display: flex;
-    align-items: center;
-    height: 100%;
-}
-
-.navbar .text-white {
+.text-white {
     font-size: 20px;
+    vertical-align: middle;
 }
 
 .btn-outline-light {
@@ -35,10 +20,19 @@
 .btn-cerrar-sesion {
     background-color: red; 
     color: white; 
+    margin-left: auto;
 }
 
 .btn-cerrar-sesion:hover {
     background-color: white; 
     color: red;
     border: 1px solid red;
+}
+
+a {
+    text-decoration: none;
+}
+
+a img {
+    vertical-align: middle;
 }

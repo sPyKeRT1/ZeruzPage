@@ -14,18 +14,21 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="alertas">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-              {% for category, message in messages %}
+                {% for category, message in messages %}
                 {% if category == "success" %}
                 <div class="alert alert-success"> <strong>¡Excelente!</strong> {{ message }}</div>
                 {% else %}
                 <div class="alert alert-danger"> <strong>¡Oh rayos!</strong> {{ message }}</div>
                 {% endif %}
-              {% endfor %}
+                {% endfor %}
             {% endif %}
         {% endwith %}
+    </div>
+    <div class="container">
+        
 
         <div class="form-container">
             <div class="text-center mb-4">
@@ -35,11 +38,11 @@
             <form action="{{ url_for('inicio_sesion') }}" method="POST">
                 <div class="form-group">
                     <label for="rut_usuario">Rut</label>
-                    <input type="text" class="form-control" name="rut_usuario" id="rut_usuario" placeholder="Ingrese su Rut">
+                    <input type="text" class="form-control" name="rut_usuario" id="rut_usuario" placeholder="Ingrese su Rut" required>
                 </div>
                 <div class="form-group">
                     <label for="contrasena_usuario">Contraseña</label>
-                    <input type="password" class="form-control" name="contrasena_usuario" id="contrasena_usuario" placeholder="Ingrese su Contraseña">
+                    <input type="password" class="form-control" name="contrasena_usuario" id="contrasena_usuario" placeholder="Ingrese su Contraseña" required>
                 </div>
                 <button type="submit" class="btn btn-success">Iniciar Sesión</button>
             </form>

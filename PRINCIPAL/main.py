@@ -1,19 +1,24 @@
 #----------------------------------------IMPORTS NECESARIOS----------------------------------------
+# Importación de las librerías necesarias para el funcionamiento de la aplicación.
 
 from flask import Flask, render_template, url_for, request, redirect, session, flash
+import random
 import cx_Oracle
 
 #----------------------------------------VALORES ESTATICOS-----------------------------------------
+# Configuración básica de Flask y definición de constantes, como la clave secreta y el rol de administrador.
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = '4495d60fb193c77b54e891a4fe200e7e'
-RUT_ADMINISTRADOR = 11111
+ROL_ADMINISTRADOR = 2
 
 #-----------------------------------FUNCION DETECCION DE ADMIN-------------------------------------
+# Funcion para restringir el acceso a ciertas rutas únicamente a usuarios con rol de administrador.
+
 
 def requiere_administrador(func):
     def wrapper(*args, **kwargs):
-        if "usuario" in session and session["usuario"] == RUT_ADMINISTRADOR:
+        if "usuario" in session and session["rol"] == ROL_ADMINISTRADOR:
             return func(*args, **kwargs)
         flash("Acceso restringido: solo el administrador puede realizar esta acción.", "danger")
         return redirect(url_for("productos"))
@@ -21,6 +26,8 @@ def requiere_administrador(func):
     return wrapper
 
 #------------------------------------------RUTA INICIAL--------------------------------------------
+# Página inicial. Si hay un usuario autenticado, redirige a la vista de productos, de lo contrario,
+# muestra la página de inicio de sesion.
 
 @app.route("/", methods=["POST", "GET"])
 def inicio():
@@ -29,7 +36,30 @@ def inicio():
     else:
         return render_template("inicio.html")
 
+#------------------------------------------RUTA HOME--------------------------------------------
+# Muestra los productos disponibles desde la base de datos para usuarios registrados.
+# Gestiona posibles errores de conexión o consulta.
+
+@app.route("/home", methods=["GET"])
+def home():
+    conexion = conectar_bdd()
+    if conexion:
+        try:
+            sentencia = conexion.cursor()
+            sentencia.execute("SELECT * FROM PRODUCTO")
+            productos = [fila for fila in sentencia]
+            return render_template("home.html", productos=productos)
+        except cx_Oracle.DatabaseError as e:
+            flash(f"Error al cargar productos: {str(e)}", "danger")
+        finally:
+            sentencia.close()
+    else:
+        flash("No se pudo conectar a la base de datos", "danger")
+    return redirect(url_for("inicio"))
 #--------------------------------------RUTA INICIAR SESION-----------------------------------------
+# Gestiona la autenticación de usuarios haciendo llamados a la base de datos para verificar las credenciales.
+# Configura la sesión y redirige según el rol del usuario
+# se utiliza el procedure INICIAR_SESION.
 
 @app.route("/inicio_sesion", methods=["POST", "GET"])
 def inicio_sesion():   
@@ -40,8 +70,9 @@ def inicio_sesion():
         conexion = conectar_bdd()
         if conexion:
             sentencia = conexion.cursor()
-            resultado = sentencia.var(cx_Oracle.STRING) 
+            resultado = sentencia.var(cx_Oracle.STRING)
             mensaje = sentencia.var(cx_Oracle.STRING)
+            rol_usuario = sentencia.var(cx_Oracle.NUMBER)  
             try:
                 sentencia.callproc(
                     "INICIAR_SESION", 
@@ -49,14 +80,27 @@ def inicio_sesion():
                         int(usuario["rut"]), 
                         usuario["contrasena"], 
                         resultado, 
-                        mensaje
+                        mensaje,
+                        rol_usuario 
                     )
                 )
+
                 if resultado.getvalue() == "TRUE":
                     session["usuario"] = int(usuario["rut"])
-                    flash(mensaje.getvalue(), "success")
+                    rol = rol_usuario.getvalue()
+                    session["rol"] = rol if rol is not None else None
+
+                    if rol == 1:
+                        flash(mensaje.getvalue(), "success")
+                        return redirect(url_for("home")) 
+                    elif rol == ROL_ADMINISTRADOR: 
+                        flash(mensaje.getvalue(), "success")
+                        return redirect(url_for("productos")) 
+                    else:
+                        flash("Rol no reconocido.", "danger")
                 else:
                     flash(mensaje.getvalue(), "danger")
+                    return render_template("inicio_sesion.html")
             except cx_Oracle.DatabaseError as e:
                 flash("Error al iniciar sesión: " + str(e), "danger")
             finally:
@@ -68,6 +112,8 @@ def inicio_sesion():
         return render_template("inicio_sesion.html")
 
 #-----------------------------------------RUTA REGISTRO--------------------------------------------
+# Permite registrar nuevos usuarios obteniendo sus datos desde el form HTML.
+# luego se utiliza el procedure INSERTAR_USUARIO para agregarlos.
 
 @app.route("/registrar_usuario", methods=["POST", "GET"])
 def registrar_usuario():
@@ -111,11 +157,16 @@ def registrar_usuario():
         return redirect(url_for("inicio"))
 
 #---------------------------------------RUTA CERRAR SESION-----------------------------------------
+# Cierra la sesión del usuario eliminando su información de la sesión.
 
 @app.route("/cerrar_sesion")
 def cerrar_sesion():
     session.pop("usuario", None)
     return redirect(url_for("inicio"))
+
+#---------------------------------------Conexion a la base de datos--------------------------------
+# Establece y retorna una conexión con la base de datos Oracle local.
+# En caso de error, muestra un mensaje en consola y retorna `False`.
 
 def conectar_bdd():
     try:    
@@ -127,6 +178,8 @@ def conectar_bdd():
         return False
 
 #-----------------------------------RUTA MOSTRAR PRODUCTOS/HOME------------------------------------
+# Muestra una lista de productos desde la base de datos.
+# Verifica si el usuario es administrador para habilitar funciones adicionales CRUD.
 
 @app.route("/productos", methods=["GET"])
 def productos():
@@ -158,6 +211,8 @@ def productos():
     return render_template("productos.html")
 
 #-------------------------------------RUTA INSERTAR PRODUCTO---------------------------------------
+# Permite a los administradores agregar nuevos productos.
+
 
 @app.route("/insertar_producto", methods=["POST", "GET"])
 @requiere_administrador
@@ -216,6 +271,8 @@ def insertar_producto():
         return render_template("insertar_producto.html", categorias=categorias)
 
 #-------------------------------------RUTA MODIFICAR PRODUCTO--------------------------------------
+# Permite a los administradores modificar los detalles de un producto existente, excepto su id.
+# se utiliza el procedure MODIFICAR_PRODUCTO
 
 @app.route("/modificar_producto", methods=["POST", "GET"])
 @requiere_administrador
@@ -271,7 +328,39 @@ def modificar_producto():
         
         return render_template("modificar_producto.html")
 
+#------------------------------------RUTA PARA MOSTRAR PAGO----------------------------------------
+# Muestra los detalles de un producto seleccionado para proceder al pago.
+
+@app.route("/pago", methods=["GET"])
+def mostrar_pago():
+    codigo_producto = request.args.get("codigo_producto")
+    if not codigo_producto:
+        flash("Código de producto no válido", "danger")
+        return redirect(url_for("productos"))
+
+    conexion = conectar_bdd()
+    if conexion:
+        try:
+            sentencia = conexion.cursor()
+            sentencia.prepare("SELECT * FROM PRODUCTO WHERE CODIGO = :codigo")
+            sentencia.execute(None, {"codigo": int(codigo_producto)})
+            producto = sentencia.fetchone()
+
+            if producto:
+                return render_template("pago.html", producto=producto)
+            else:
+                flash("Producto no encontrado", "danger")
+        except cx_Oracle.DatabaseError as e:
+            flash(f"Error al buscar producto: {str(e)}", "danger")
+        finally:
+            sentencia.close()
+    else:
+        flash("No se pudo conectar a la base de datos", "danger")
+    return redirect(url_for("productos"))
+
 #-------------------------------------RUTA ELIMINAR PRODUCTO--------------------------------------
+# Permite a los administradores eliminar un producto.
+# se utiliza el procedure ELIMINAR_PRODUCTO
 
 @app.route("/eliminar_producto", methods=["POST", "GET"])
 @requiere_administrador
@@ -293,11 +382,14 @@ def eliminar_producto():
         return redirect(url_for("productos"))
 
 #----------------------------------------RUTA PROCESAR PAGO---------------------------------------
+# Procesa una compra, actualizando el stock del producto adquirido en la base de datos.
+# se utiliza el procedure DESCONTAR_STOCK
 
 @app.route("/procesar_pago", methods=["POST"])
 def procesar_pago():
     codigo_producto = request.form["codigo_producto"]
-    rut_usuario = session["usuario"]
+    cantidad = int(request.form["cantidad"])  # Obtener cantidad de productos comprados
+    rut_usuario = session.get("usuario")  # Uso de get para asegurar que 'usuario' exista en session
 
     conexion = conectar_bdd()
     if conexion:
@@ -306,22 +398,73 @@ def procesar_pago():
             resultado = cursor.var(cx_Oracle.STRING)
             mensaje = cursor.var(cx_Oracle.STRING)
 
-            # Suponiendo que tienes un procedimiento almacenado para procesar el pago
-            cursor.callproc("PROCESAR_PAGO", [codigo_producto, rut_usuario, resultado, mensaje])
+            # Llamar al procedimiento para descontar el stock
+            cursor.callproc("DESCONTAR_STOCK", [codigo_producto, cantidad, resultado, mensaje])
+            
             conexion.commit()
             cursor.close()
 
             flash(mensaje.getvalue(), "success" if resultado.getvalue() == "TRUE" else "danger")
+        except cx_Oracle.DatabaseError as e:
+            error, = e.args  # Obtener el primer error
+            flash(f"Error al procesar el pago: {error.message}", "danger")
         except Exception as e:
-            flash(f"Error al procesar el pago: {str(e)}", "danger")
-        return redirect(url_for("pago"))
+            flash(f"Error desconocido: {str(e)}", "danger")
+        return redirect(url_for("resena"))  # Redirigir a la página de reseñas después de procesar el pago
     else:
         flash("No se pudo conectar a la base de datos", "danger")
         return redirect(url_for("pago"))
 
+
 #------------------------------------RUTA ENCUESTA SATISFACCION-----------------------------------
+# Permite a los usuarios enviar una reseña con calificación y comentarios sobre su experiencia.
+# se utiliza el procedure REGISTRAR_ENCUESTA
 
 
+@app.route("/resena", methods=["POST", "GET"])  
+def resena():
+    if request.method == "POST":
+        try:
+            codigo_pedido = int(request.form["codigo_pedido"]) 
+            rating = int(request.form["rating"]) 
+            comentarios = request.form["comentarios"]
+        except (KeyError, ValueError): 
+            flash("Error: Datos de la reseña incompletos o inválidos.", "danger")
+            return redirect(url_for('home')) 
+
+        conexion = conectar_bdd()
+        if conexion:
+            try:
+                sentencia = conexion.cursor()
+                resultado = sentencia.var(cx_Oracle.STRING)
+                mensaje = sentencia.var(cx_Oracle.STRING)
+
+                sentencia.callproc(
+                    "REGISTRAR_ENCUESTA",
+                    (codigo_pedido, rating, comentarios, resultado, mensaje)
+                )
+
+                if resultado.getvalue() == "TRUE":
+                    flash(mensaje.getvalue(), "success")
+                else:
+                    flash(mensaje.getvalue(), "danger")
+
+            except cx_Oracle.DatabaseError as e:
+                flash(f"Error al registrar la reseña: {e}", "danger")
+            finally:
+                sentencia.close()
+                conexion.close()
+        else:
+            flash("No se pudo conectar a la base de datos.", "danger")
+
+
+        return redirect(url_for('home'))
+    else: 
+        codigo_pedido = random.randint(100000, 999999)
+        nombre_producto = request.args.get('nombre_producto')
+        precio_producto = request.args.get('precio_producto')
+        cantidad = request.args.get('cantidad')
+        return render_template("resena.html", codigo_pedido=codigo_pedido, nombre_producto=nombre_producto,  precio_producto=precio_producto, cantidad=cantidad)
 
 #------------------------------------LLAMADO A LA FUNCION MAIN------------------------------------
 

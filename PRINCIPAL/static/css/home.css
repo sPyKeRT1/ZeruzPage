@@ -1,9 +1,9 @@
-.container {
+.custom-container {
     margin-top: 20px;
     margin-bottom: 50px;
 }
 
-.pricing-header{
+.pricing-header {
     margin-top: -50px;
 }
 
@@ -26,8 +26,4 @@
 .table td {
     padding: 10px;
     text-align: center;
-}
-
-.btn-success {
-    margin-top: 20px;
 }
