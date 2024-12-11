@@ -342,7 +342,12 @@ def mostrar_pago():
     if conexion:
         try:
             sentencia = conexion.cursor()
-            sentencia.prepare("SELECT * FROM PRODUCTO WHERE CODIGO = :codigo")
+            sentencia.prepare("""
+                SELECT p.*, c.nombre AS categoria
+                FROM PRODUCTO p
+                JOIN CATEGORIA c ON p.codigo_categoria = c.codigo
+                WHERE p.codigo = :codigo
+            """)
             sentencia.execute(None, {"codigo": int(codigo_producto)})
             producto = sentencia.fetchone()
 
